@@ -1,0 +1,32 @@
+# --- build output --------------------------------------------------------
+build/
+out/
+cmake-build-*/
+vcpkg_installed/
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exp
+
+# --- IDE / editor --------------------------------------------------------
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+CMakeUserPresets.json
+compile_commands.json
+
+# --- vaults & secrets: never commit these ---------------------------------
+*.mpv
+*.mpv.bak
+*.mpv.tmp
+*.ini
+
+# --- OS noise --------------------------------------------------------------
+Thumbs.db
+.DS_Store

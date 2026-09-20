@@ -1,0 +1,82 @@
+name: build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: 6.9.3
+  VCPKG_BASELINE: ea1a7396b05637a53bf23c078647ecc0edee4b80
+
+jobs:
+  windows:
+    name: Windows x64 (MSVC)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          modules: ""
+          cache: true
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up vcpkg (pinned to manifest baseline)
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:RUNNER_TEMP\vcpkg"
+          git -C "$env:RUNNER_TEMP\vcpkg" checkout $env:VCPKG_BASELINE
+          & "$env:RUNNER_TEMP\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          "VCPKG_ROOT=$env:RUNNER_TEMP\vcpkg" | Out-File -Append $env:GITHUB_ENV
+          "QT_DIR=$env:QT_ROOT_DIR" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\vcpkg\archives
+          key: vcpkg-${{ runner.os }}-${{ env.VCPKG_BASELINE }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure
+        run: cmake --preset windows-release
+
+      - name: Build
+        run: cmake --build --preset windows-release
+
+      - name: Test
+        run: build\windows-release\mp_tests.exe
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "multipassword-windows-x64"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item build\windows-release\multipassword.exe $out
+          Copy-Item build\windows-release\*.dll $out
+          Copy-Item -Recurse build\windows-release\platforms, build\windows-release\styles, build\windows-release\imageformats, build\windows-release\iconengines $out -ErrorAction SilentlyContinue
+          Copy-Item README.md, SECURITY.md, LICENSE $out
+          Compress-Archive -Path $out -DestinationPath "$out.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multipassword-windows-x64
+          path: multipassword-windows-x64.zip
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: multipassword-windows-x64.zip
+          generate_release_notes: true
