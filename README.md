@@ -1,85 +1,150 @@
-<div align="center">
+# multipassword
 
-<img src="docs/screenshots/main.png" alt="multipassword" width="860">
+<p align="center">
+  <img src="https://img.shields.io/badge/C%2B%2B-20-00599C?style=for-the-badge&logo=cplusplus&logoColor=white">
+  <img src="https://img.shields.io/badge/Qt-6.9-41CD52?style=for-the-badge&logo=qt&logoColor=white">
+  <img src="https://img.shields.io/badge/libsodium-Argon2id%20%2B%20XChaCha20-4B0082?style=for-the-badge">
+  <img src="https://img.shields.io/github/actions/workflow/status/pilottX11/multipassword/build.yml?style=for-the-badge">
+  <img src="https://img.shields.io/github/stars/pilottX11/multipassword?style=for-the-badge">
+  <img src="https://img.shields.io/github/last-commit/pilottX11/multipassword?style=for-the-badge">
+</p>
 
-# 🛡️ multipassword
+<p align="center">
+  <a href="#about">About</a> •
+  <a href="#features">Features</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#building">Building</a> •
+  <a href="#autofill">Autofill</a> •
+  <a href="#vault-format">Vault format</a> •
+  <a href="#structure">Structure</a>
+</p>
 
-**A local-first, end-to-end encrypted password manager for logins, cards, identities, secure notes and crypto wallet seed phrases — written in modern C++ with Qt 6 and libsodium.**
+<p align="center">
+  <img src="docs/screenshots/main.png" width="860">
+</p>
 
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
-[![Qt 6](https://img.shields.io/badge/Qt-6.9-41CD52?logo=qt&logoColor=white)](https://www.qt.io/)
-[![libsodium](https://img.shields.io/badge/crypto-libsodium-4B0082)](https://libsodium.org/)
-[![KDF](https://img.shields.io/badge/KDF-Argon2id-8B5CF6)](https://en.wikipedia.org/wiki/Argon2)
-[![AEAD](https://img.shields.io/badge/AEAD-XChaCha20--Poly1305-2F6BFF)](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction)
-[![BIP-39](https://img.shields.io/badge/BIP--39-seed%20phrases-F97316)](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
-[![Platform](https://img.shields.io/badge/platform-Windows%2011-0078D4?logo=windows&logoColor=white)](#building)
-[![build](https://github.com/pilottX11/multipassword/actions/workflows/build.yml/badge.svg)](https://github.com/pilottX11/multipassword/actions/workflows/build.yml)
-[![Tests](https://img.shields.io/badge/tests-112%20checks%20passing-3DC27A)](#tests)
-[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+## About
 
-</div>
+multipassword is a password manager written in C++ with Qt 6. Everything is stored in a single encrypted vault file on your machine. There is no account, no server and no sync. It handles normal logins, cards, identities and notes, and it also stores crypto wallet seed phrases, which are checked against the BIP-39 wordlist so a typo can't be saved by accident.
 
----
+Encryption is done with libsodium: the master password goes through Argon2id and the result unwraps a random vault key that encrypts the data with XChaCha20-Poly1305. Keys and secrets are kept in locked memory and wiped when the vault locks.
 
-## ✨ Features
+## Features
 
-| | Feature | Details |
-|:-:|---|---|
-| 🔐 | **Strong encryption** | Argon2id (256 MiB, tunable) → XChaCha20-Poly1305 AEAD. Two-level keying: a random vault key is wrapped by your master key, so changing the master password never re-encrypts your data. |
-| 🧠 | **Locked memory** | Every key, password and seed phrase lives in `sodium_malloc` guard-paged, `mlock`ed memory and is wiped on release. |
-| 🪙 | **Crypto wallets** | Seed phrases are validated against the BIP-39 wordlist **with checksum**, shown as a numbered word grid, and can be generated (12/24 words) from the OS CSPRNG. Also stores passphrase (25th word), private key, address and derivation path. |
-| 🔑 | **Logins, cards, identities, notes** | Typed records with the fields you expect, favourites, folders and trash. |
-| ⚡ | **Autofill** | System-wide hotkey (`Ctrl+Alt+A`). Detects the focused window and browser URL (UI Automation), matches by host, and auto-types `{USERNAME}{TAB}{PASSWORD}{ENTER}` — the sequence is configurable. |
-| 🔢 | **TOTP** | Built-in RFC 6238 one-time codes with live countdown. |
-| 🎲 | **Generator** | Passwords (no modulo bias, guaranteed character classes) and diceware passphrases (11 bits/word). |
-| 📋 | **Clipboard hygiene** | Copied secrets auto-clear after 30 s and are excluded from Windows clipboard history / cloud sync. |
-| ⏱️ | **Auto-lock** | On inactivity, minimise, screen lock or sleep. Exponential lockout on wrong passwords. |
-| 🖥️ | **Screen-capture shield** | Optional `WDA_EXCLUDEFROMCAPTURE` so the window is invisible to screenshots and screen sharing. |
-| 💾 | **Atomic saves** | Temp file → `fsync` → `ReplaceFile`, with a `.bak` of the previous vault. Encrypted backup export. |
-| 🎨 | **Faithful UI** | Three-pane dark interface recreated one-to-one from the reference design. |
-| 🧾 | **Sign-up page** | First-run onboarding: name, master password with live strength meter + requirement checklist, confirmation, optional hint, and an explicit "cannot be recovered" acknowledgement before the vault is created. |
+| Area | What it does |
+| --- | --- |
+| Encryption | Argon2id (256 MiB, parameters stored in the file) → XChaCha20-Poly1305. Changing the master password only rewraps the vault key. |
+| Memory | Secrets live in `sodium_malloc` memory (guard pages, `mlock`) and are zeroed on release. Crash dumps are off. |
+| Item types | Login, Card, Identity, Secure Note, Crypto Wallet. Favourites, folders, trash. |
+| Crypto wallets | Seed phrase with BIP-39 checksum validation, 12/24-word generation, passphrase, private key, address, derivation path. |
+| Autofill | Global hotkey (`Ctrl+Alt+A`). Reads the focused window title and browser URL, matches by host, types the credentials. Sequence is configurable. |
+| TOTP | RFC 6238 codes with countdown. |
+| Generator | Random passwords and diceware passphrases, both from the OS CSPRNG. |
+| Clipboard | Copied secrets clear after 30 s and are excluded from Windows clipboard history. |
+| Locking | Auto-lock on idle, minimize, screen lock and sleep. Wrong-password lockout. Optional exclusion from screenshots / screen share. |
+| Saving | Temp file → flush → `ReplaceFile`, previous vault kept as `.bak`. Encrypted backup export. |
+| Onboarding | Sign-up page with strength meter, requirement checklist, confirmation and optional hint. |
 
----
-
-## 📸 Screenshots
+## Screenshots
 
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/unlock.png" width="300"><br><sub>Unlock</sub></td>
-    <td align="center"><img src="docs/screenshots/wallet.png" width="420"><br><sub>Crypto wallet — seed phrase revealed &amp; checksum-verified</sub></td>
+    <td align="center"><img src="docs/screenshots/wallet.png" width="420"><br><sub>Crypto wallet, seed phrase revealed</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/autofill.png" width="300"><br><sub>Autofill picker (Ctrl+Alt+A)</sub></td>
-    <td align="center"><img src="docs/screenshots/edit.png" width="420"><br><sub>Editing a wallet with live BIP-39 validation</sub></td>
+    <td align="center"><img src="docs/screenshots/autofill.png" width="300"><br><sub>Autofill picker</sub></td>
+    <td align="center"><img src="docs/screenshots/edit.png" width="420"><br><sub>Editing a wallet</sub></td>
   </tr>
 </table>
 
-> Screenshots use generated demo data (`mp_seed_demo`). The seed phrase shown is random and controls nothing.
+Screenshots use data from `mp_seed_demo`. The seed phrase in them is random.
 
----
+## Building
 
-## 🏗️ Architecture
+Windows only for now (the autofill layer is Win32). Tested with Visual Studio 2026 / MSVC 14.51, Qt 6.9.3 and the vcpkg build of libsodium.
+
+```powershell
+C:\vcpkg\vcpkg install libsodium:x64-windows
+$env:QT_DIR = "C:\Qt\6.9.3\msvc2022_64"
+.\build.ps1 release
+```
+
+Output goes to `build\windows-release\`. `windeployqt` runs as a post-build step so the folder is runnable as is.
+
+```text
+.\build.ps1 release     build
+.\build.ps1 debug       debug build
+.\build.ps1 test        build and run mp_tests
+.\build.ps1 clean       remove build/
+```
+
+`build.ps1` sets up the MSVC environment itself, so it works from a plain PowerShell window. If you prefer CMake directly, `CMakePresets.json` has `windows-release` / `windows-debug` presets that read `VCPKG_ROOT` and `QT_DIR` from the environment.
+
+To try the UI with sample data:
+
+```powershell
+.\build\windows-release\mp_seed_demo.exe demo.mpv "correct horse battery staple"
+.\build\windows-release\multipassword.exe --vault demo.mpv
+```
+
+## Tests
+
+`mp_tests` covers the core: AEAD tamper detection, KDF, vault container round-trip and corruption, create/open/save/change-password, BIP-39 checksums, RFC 6238 vectors, the generator and autofill matching.
+
+```text
+112 checks, 0 failures, 0/10 tests failed
+```
+
+## Autofill
+
+1. Focus the login form in any application or browser.
+2. Press `Ctrl+Alt+A`.
+3. One exact URL match is typed straight away. Otherwise a picker shows the matches; Enter fills the selected one.
+
+Sequences can use `{USERNAME}`, `{PASSWORD}`, `{TAB}`, `{ENTER}`, `{SPACE}`, `{DELAY 500}` and any field key such as `{totp}`. Typing stops immediately if another window takes focus.
+
+Known issue: in the Windows 11 Notepad app two characters were substituted during testing. Browsers and normal edit controls are the intended targets; if you hit this elsewhere, open an issue.
+
+## Vault format
+
+```text
+offset  size   field
+0       4      magic "MPV\x01"
+4       1      format version
+5       1      KDF id (1 = Argon2id v1.3)
+6       8      Argon2 opsLimit
+14      8      Argon2 memLimit (bytes)
+22      16     salt
+38      1      flags
+39      72     wrapped vault key   XChaCha20-Poly1305(masterKey, vaultKey), AAD = bytes[0,39)
+111     ...    body                XChaCha20-Poly1305(vaultKey, JSON),      AAD = bytes[0,111)
+```
+
+The master key is never written to disk and is dropped right after the vault key is unwrapped. Every save uses a fresh 192-bit nonce. KDF parameters are bounded on parse so a crafted file can't exhaust memory. More detail in [SECURITY.md](SECURITY.md).
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph UI["src/ui  (Qt Widgets)"]
+    subgraph UI["src/ui"]
         MW[MainWindow] --> SB[Sidebar]
         MW --> LP[ItemListPanel]
         MW --> DP[ItemDetailPanel]
         MW --> EP[ItemEditPanel]
-        MW --> UD[Unlock / Signup]
+        MW --> UD[Signup / Unlock]
         MW --> AP[AutofillPicker]
         MW --> CM[ClipboardManager]
     end
     subgraph AF["src/autofill"]
-        AE[AutofillEngine<br/>host matching · sequence expansion]
-        AT[AutoType<br/>hotkey · UIA URL · SendInput]
+        AE[AutofillEngine]
+        AT[AutoType]
     end
-    subgraph CORE["src/core  (QtCore + libsodium)"]
-        V[Vault] --> VF[VaultFormat<br/>.mpv container]
-        VF --> CR[Crypto<br/>Argon2id · XChaCha20-Poly1305]
-        CR --> SM[SecureMemory<br/>sodium_malloc · mlock · memzero]
-        V --> IT[Item / Folder model]
+    subgraph CORE["src/core"]
+        V[Vault] --> VF[VaultFormat]
+        VF --> CR[Crypto]
+        CR --> SM[SecureMemory]
+        V --> IT[Item / Folder]
         B39[Bip39] --> CR
         TOTP[Totp] --> CR
         PG[PasswordGenerator] --> CR
@@ -88,157 +153,56 @@ flowchart LR
     MW --> AE --> AT
 ```
 
-### Vault file format (`.mpv`)
+## Structure
 
-```
-offset  size   field
-0       4      magic "MPV\x01"
-4       1      format version
-5       1      KDF id (1 = Argon2id v1.3)
-6       8      Argon2 opsLimit          ┐ stored per file, so parameters
-14      8      Argon2 memLimit (bytes)  ┘ can be raised without migration
-22      16     salt
-38      1      flags
-39      72     wrapped vault key  = XChaCha20-Poly1305(masterKey, vaultKey)   AAD = bytes[0,39)
-111     …      body               = XChaCha20-Poly1305(vaultKey, JSON)       AAD = bytes[0,111)
-```
-
-* `masterKey = Argon2id(masterPassword, salt)` — never stored, never retained after unlock.
-* Every save uses a fresh 192-bit random nonce; tampering with any byte of header or body fails authentication.
-* Crafted files cannot DoS the machine: KDF parameters are bounded on parse.
-
-More in [SECURITY.md](SECURITY.md).
-
----
-
-## 🚀 Building
-
-### Prerequisites (Windows)
-
-| Tool | Tested with |
-|---|---|
-| Visual Studio 2022/2026 with *Desktop development with C++* | MSVC 14.51 |
-| Qt 6 (MSVC 2022 x64 kit) | 6.9.3 |
-| vcpkg with `libsodium` | 2026-07 |
-| CMake ≥ 3.21 + Ninja | bundled with VS |
-
-```powershell
-# 1. dependencies
-C:\vcpkg\vcpkg install libsodium:x64-windows
-
-# 2. build (auto-detects MSVC / Windows SDK, uses CMakePresets.json)
-$env:QT_DIR = "C:\Qt\6.9.3\msvc2022_64"      # adjust to your kit
-.\build.ps1 release                            # → build\windows-release\multipassword.exe (Qt DLLs deployed)
-
-# 3. run
-.\build\windows-release\multipassword.exe
-```
-
-Other tasks: `.\build.ps1 debug`, `.\build.ps1 test`, `.\build.ps1 clean`.
-
-<details>
-<summary>Manual CMake invocation</summary>
-
-```powershell
-cmake --preset windows-release
-cmake --build --preset windows-release
-ctest --preset windows-release
-```
-
-`CMakePresets.json` reads `VCPKG_ROOT` and `QT_DIR` from the environment.
-</details>
-
----
-
-## 🧪 Tests
-
-`mp_tests` is a dependency-free runner covering the security-critical core:
-
-```
-[  OK  ] secure_bytes_basics
-[  OK  ] aead_roundtrip_and_tamper       # wrong key / wrong AAD / flipped bit all rejected
-[  OK  ] kdf_deterministic
-[  OK  ] vault_format_roundtrip          # header tamper, bad magic
-[  OK  ] vault_create_open_save          # atomic save, .bak, wrong password, change master password, corrupt file
-[  OK  ] bip39_validation                # checksum, unknown words, 12/15/18/21/24-word generation
-[  OK  ] totp_rfc6238_vectors            # RFC 6238 Appendix B test vectors
-[  OK  ] password_generator
-[  OK  ] autofill_matching               # host-suffix rules, sequence expansion
-[  OK  ] item_json_roundtrip
-
-112 checks, 0 failures, 0/10 tests failed
-```
-
-```powershell
-.\build.ps1 test
-```
-
-To explore the UI with sample data:
-
-```powershell
-.\build\windows-release\mp_seed_demo.exe demo.mpv "correct horse battery staple"
-.\build\windows-release\multipassword.exe --vault demo.mpv
-```
-
----
-
-## ⚡ Autofill
-
-1. Focus the login form in any app or browser.
-2. Press **Ctrl + Alt + A** (configurable in *Settings*).
-3. If exactly one entry matches the page URL it is typed immediately; otherwise a picker lists the best matches.
-
-Type sequences support `{USERNAME}`, `{PASSWORD}`, `{TAB}`, `{ENTER}`, `{SPACE}`, `{DELAY 500}` and any field key such as `{totp}` or `{cardholder}`. Typing aborts instantly if focus moves to another window, so a secret is never typed into the wrong place.
-
-> **Known quirk:** in the Windows 11 *Notepad* app two characters were substituted during an auto-type test; classic edit controls and browsers are the intended targets — please verify on your login pages and report anything odd.
-
----
-
-## ⌨️ Shortcuts
-
-| Keys | Action |
-|---|---|
-| `Ctrl+N` | New login |
-| `Ctrl+E` | Edit selected item |
-| `Ctrl+S` | Save (while editing) |
-| `Ctrl+F` | Search |
-| `Ctrl+L` | Lock vault |
-| `Ctrl+,` | Settings |
-| `Ctrl+Alt+A` | Autofill (global) |
-
----
-
-## 📁 Project layout
-
-```
+```text
 multipassword/
-├── CMakeLists.txt · CMakePresets.json · vcpkg.json · build.ps1
 ├── src/
-│   ├── core/       SecureMemory · Crypto · VaultFormat · Vault · Item · Bip39 · Totp · PasswordGenerator · Settings
-│   ├── autofill/   AutofillEngine · AutoType (Win32)
-│   ├── ui/         MainWindow · Sidebar · ItemListPanel · ItemDetailPanel · ItemEditPanel · Signup/Unlock · dialogs
+│   ├── core/          SecureMemory, Crypto, VaultFormat, Vault, Item, Bip39, Totp, PasswordGenerator, Settings
+│   ├── autofill/      AutofillEngine, AutoType
+│   ├── ui/            MainWindow, Sidebar, ItemListPanel, ItemDetailPanel, ItemEditPanel, dialogs
 │   └── main.cpp
-├── resources/      BIP-39 wordlist · icons · Windows manifest
-├── tests/          test_main.cpp · seed_demo_vault.cpp
-└── docs/           screenshots
+├── resources/         BIP-39 wordlist, Windows manifest
+├── tests/             test_main.cpp, seed_demo_vault.cpp
+├── docs/              screenshots
+├── CMakeLists.txt
+├── CMakePresets.json
+├── build.ps1
+└── vcpkg.json
 ```
 
----
+## Shortcuts
 
-## 🔒 Security model in one paragraph
+```text
+Ctrl+N        new login
+Ctrl+E        edit selected item
+Ctrl+S        save (while editing)
+Ctrl+F        search
+Ctrl+L        lock
+Ctrl+,        settings
+Ctrl+Alt+A    autofill (global)
+```
 
-Your master password never leaves the process and is never written anywhere. It is stretched with Argon2id into a key that only unwraps a random 256-bit vault key; that key decrypts the vault body. All key material sits in locked, guard-paged memory and is wiped when the vault locks. The window can be hidden from screen capture, the clipboard self-cleans, DLL search paths are hardened and crash dumps are disabled so plaintext never reaches disk. What this *cannot* protect against: malware running with your privileges while the vault is unlocked, or a weak master password — pick a long passphrase.
+## Build
 
----
+```text
+Language     C++20
+UI           Qt 6 Widgets
+Crypto       libsodium 1.0.22
+Platform     Windows x64
+License      MIT
+```
 
-<div align="center">
-<sub>Built with C++20 · Qt 6 · libsodium — icons from <a href="https://feathericons.com">Feather</a> (MIT)</sub>
-</div>
+## Releases
 
-## 🤝 Contributing
+CI builds and tests every push. Pushing a `v*` tag attaches `multipassword-windows-x64.zip` to a GitHub release.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go through GitHub's private vulnerability reporting — see [SECURITY.md](SECURITY.md).
+<p align="center">
+  <a href="https://github.com/pilottX11/multipassword">
+    <img src="https://img.shields.io/badge/View%20Repository-GitHub-181717?style=for-the-badge&logo=github">
+  </a>
+</p>
 
-## 📦 Releases
-
-Every push to `main` builds and tests on GitHub Actions; pushing a tag like `v1.0.0` publishes a ready-to-run `multipassword-windows-x64.zip` on the Releases page.
+<p align="center">
+  <sub>encrypted password and seed phrase manager</sub>
+</p>
